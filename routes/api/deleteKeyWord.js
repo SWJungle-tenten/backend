@@ -34,6 +34,15 @@ const deleteKeyWord = async (username, keyWord, date, res) => {
     const userScrapCollection = database.collection(username);
     const result = await userScrapCollection.findOne({ user: username });
 
+    // Check if keyWord exists in the user's data
+    const foundKeyword = result.keyWords.find(
+      (keyword) => keyword.date === date && keyword.keyWord === keyWord
+    );
+
+    if (!foundKeyword) {
+      return res.status(404).json("KeyWord not found in the user's data.");    
+    }
+
     // keyWord에 해당하는 데이터 삭제
     result.keyWords = result.keyWords.filter(
       (keyword) => !(keyword.date === date && keyword.keyWord === keyWord)

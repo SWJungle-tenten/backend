@@ -56,6 +56,9 @@ app.use("/api/giveUserName", giveUserName);
 const logoutRouter = require("./routes/api/logout");
 app.use("/api/logout", logoutRouter);
 
+const makeGroup = require("./routes/api/makeGroup");
+app.use("/api/makeGroup", makeGroup);
+
 // (11) MongoDB 와 서버 연결
 connectDB();
 // (12) Express application 을 PORT 번호에서 실행

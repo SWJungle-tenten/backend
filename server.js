@@ -14,6 +14,8 @@ const { Server } = require("socket.io");
 const io = new Server(server);
 
 const { extractUserName, keyWordByDate } = require("./function/keyWordByDate");
+const { saveUserScrap } = require('./function/saveUserScrap');
+const { getDateAndTime } = require('./function/getDateAndTime');
 
 app.get("/", (req, res) => {
   res.send("API Running");
@@ -72,6 +74,22 @@ io.on("connection", (socket) => {
       dataToSend
     });
   });
+
+  socket.on("saveUserScrap request from client", async (msg) => {
+    
+    // saveUserScrap
+    const dateTime = await getDateAndTime();
+    const username = await extractUserName(msg.userToken, process.env.jwtSecret);
+    const result = await saveUserScrap(username, msg.keyWord, msg.url, dateTime.date, dateTime.time, msg.title);
+    // DB에 update된 내용을 다시 보내주기
+    console.log(result);
+    const dataToSend = await keyWordByDate(username);
+
+    socket.emit("saveUserScrap respond from server", {
+      dataToSend
+    });
+  });
+
 });
 
 server.listen(6000, () => {

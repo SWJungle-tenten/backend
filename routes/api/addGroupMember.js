@@ -74,14 +74,14 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
 };
 
 // search->memberName에 groupname추가, memberID반환
-const addGroupInUser = async (memberName, groupName) => {
+const addGroupInUser = async (memberName, groupName, groupOwner) => {
   try {
     const client = await MongoClient.connect(conn_str);
     const database = client.db('search');
     const memberCollection = database.collection(memberName);
 
     // 중복 처리를 위해 이미 해당 멤버가 있는지 확인
-    const existingDocument = await memberCollection.findOne({ groupName: groupName });
+    const existingDocument = await memberCollection.findOne({ groupName: groupName, groupOwner: groupOwner });
     if (existingDocument) {
       client.close();
       return groupName;
@@ -89,6 +89,7 @@ const addGroupInUser = async (memberName, groupName) => {
 
     const document = {
       groupName: groupName,
+      groupOwner: groupOwner,
     };
 
     const result = await memberCollection.insertOne(document);
@@ -123,7 +124,7 @@ router.post('/', async (req, res) => {
     const { userToken, groupName, email } = req.body;
     const membername = await extractMemberName(email);
     const groupOwner = await extractOwnerName(userToken, process.env.jwtSecret);
-    const memberID = await addGroupInUser(membername, groupName);
+    const memberID = await addGroupInUser(membername, groupName, groupOwner);
     if (memberID === groupName) {
       return res.json({ message: '이미 추가된 멤버' });
     }

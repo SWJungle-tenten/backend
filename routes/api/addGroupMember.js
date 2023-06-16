@@ -78,12 +78,14 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
     };
     const update = { $addToSet: { members: memberID } };
     await groupCollection.updateOne(query, update);
-    const updatedDocument = await groupCollection.findOne(query);
+    const updatedDocument = await groupCollection.findOne({ groupName: groupname, groupOwner: groupowner });
     const insertedID = updatedDocument._id;
 
     client.close();
     return insertedID;
-  } catch (error) {}
+  } catch (error) {
+    console.log(error);
+  }
 };
 
 const addMemberGroup = async (memberName, groupID, groupName) => {
@@ -99,9 +101,9 @@ const addMemberGroup = async (memberName, groupID, groupName) => {
       client.close();
       return { message: '이미 해당 문서가 존재합니다. ' };
     }
-    if (groupID === undefined) {
-      return { message: 'groupID가 없습니다.' };
-    }
+    // if (groupID === null) {
+    //   return { message: 'groupID가 없습니다.' };
+    // }
     const document = {
       groupName: groupName,
       group: groupID,

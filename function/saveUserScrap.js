@@ -1,43 +1,8 @@
 require("dotenv").config();
 const { MongoClient } = require("mongodb");
-const { ObjectId } = require("mongodb");
-const jwt = require("jsonwebtoken");
 const conn_str = process.env.mongoURI;
-const secretKey = process.env.jwtSecret;
 
-const extractUserName = async (token, secretKey) => {
-  try {
-    const decoded = jwt.verify(token, secretKey);
-    const decodedUser = decoded.user;
-    const userID = String(decodedUser.id);
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('test');
-    const usersCollection = database.collection('users');
-    const user = await usersCollection.findOne({_id: new ObjectId(userID)});
-    if (user) {
-      const userName = user.name;
-      return userName;
-    } else {
-      throw new Error('User not found');
-    }
-  } catch (error) {
-    throw new Error('Invalid token');
-  }
-};
 
-const getDateAndTime = async () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const date = `${year}-${month}-${day}`;
-  const time = now.toLocaleTimeString();
-  const dateTime = {
-    time: time,
-    date: date,
-  };
-  return dateTime;
-};
 
 const saveUserScrap = async (username, keyWord, url, date, time, title, res) => {
   try {
@@ -45,7 +10,7 @@ const saveUserScrap = async (username, keyWord, url, date, time, title, res) => 
     console.log('Atlas에 연결 완료');
     const database = client.db('search');
     const userScrapCollection = database.collection(username);
-    const collectionExists = (await userScrapCollection.countDocuments()) > 0;
+    const collectionExists = (await userScrapCollection.countDocuments({ user: username })) > 0;
 
     if (collectionExists) {
       const query = {

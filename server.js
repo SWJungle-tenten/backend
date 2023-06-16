@@ -17,6 +17,7 @@ const { extractUserName, keyWordByDate } = require("./function/keyWordByDate");
 const { saveUserScrap } = require('./function/saveUserScrap');
 const { getDateAndTime } = require('./function/getDateAndTime');
 const { deleteKeyWord } = require('./function/deleteKeyWord');
+const { deleteUserScrap } = require('./function/deleteUserScrap');
 
 app.get("/", (req, res) => {
   res.send("API Running");
@@ -86,6 +87,17 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("deleteUserScrap request from client", async (msg) => {
+
+    const username = await extractUserName(msg.userToken, process.env.jwtSecret);
+    const result = await deleteUserScrap(username, msg.url, msg.title, msg.date);
+    console.log(result);
+    // DB에 update된 내용을 다시 보내주기
+    const dataToSend = await keyWordByDate(username);
+    socket.emit("deleteUserScrap respond from server", {
+      dataToSend
+    });
+  });
 });
 
 server.listen(6000, () => {

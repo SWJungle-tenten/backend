@@ -47,13 +47,6 @@ app.use("/api/giveUserName", giveUserName);
 const logoutRouter = require("./routes/api/logout");
 app.use("/api/logout", logoutRouter);
 
-
-
-// connectDB();
-
-// app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-
-
 io.on("connection", (socket) => {
   console.log("a user connected");
 

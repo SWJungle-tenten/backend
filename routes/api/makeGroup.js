@@ -70,7 +70,7 @@ const addGroupInUser = async (groupName, username, insertedID) => {
       group: insertedID, // 그룹 도큐먼트의 ID
     };
 
-    const result = await userCollection.insertOne(groupDocument);
+    await userCollection.insertOne(groupDocument);
     console.log('유저 컬렉션에 그룹 추가 완료');
 
     client.close();
@@ -84,7 +84,6 @@ router.post('/', async (req, res) => {
     const { userToken, groupName } = req.body;
     const username = await extractUserName(userToken, process.env.jwtSecret);
     const insertedID = await makeGroup(username, groupName);
-    console.log(insertedID);
     await addGroupInUser(groupName, username, insertedID);
     res.status(200).json({ message: '그룹 추가 완료' });
   } catch (error) {

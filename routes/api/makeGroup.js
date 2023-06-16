@@ -55,12 +55,6 @@ const makeGroup = async (username, groupName) => {
       members: members,
     };
 
-    // // 그룹 컬렉션이 존재하지 않으면 새로 생성합니다.
-    // const collectionExists = (await groupCollection.countDocuments()) > 0;
-    // if (!collectionExists) {
-    //   await database.createCollection('group');
-    // }
-
     const result = await groupCollection.insertOne(groupDocument);
     console.log('그룹 다큐먼트 추가');
 
@@ -80,6 +74,7 @@ const addGroupInUser = async (groupName, username, insertedID) => {
 
     const groupDocument = {
       groupName: groupName,
+      groupOwner: username,
       group: insertedID, // 그룹 도큐먼트의 ID
     };
 

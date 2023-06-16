@@ -43,7 +43,6 @@ const extractOwnerName = async (token, secretKey) => {
       client.close();
       throw new Error('User not found');
     }
-    client.close();
   } catch (error) {
     throw new Error('Invalid token');
   }
@@ -97,13 +96,9 @@ const addMemberGroup = async (memberName, groupID, groupName) => {
     // 중복 처리를 위해 이미 해당 문서가 있는지 확인
     const existingDocument = await memberCollection.findOne({ groupName: groupName, group: groupID });
     if (existingDocument) {
-      console.log('이미 해당 문서가 존재합니다.');
       client.close();
-      return { message: '이미 해당 문서가 존재합니다. ' };
+      return { message: '이미 해당 그룹이 존재합니다. ' };
     }
-    // if (groupID === null) {
-    //   return { message: 'groupID가 없습니다.' };
-    // }
     const document = {
       groupName: groupName,
       group: groupID,
@@ -123,7 +118,9 @@ router.post('/', async (req, res) => {
     const membername = await extractMemberName(email);
     const groupOwner = await extractOwnerName(userToken, process.env.jwtSecret);
     const memberID = await extractMemberID(membername);
+    // 그룹 멤버에 email의 소유자 멤버를 추가
     const groupID = await addGroupMember(memberID, groupName, groupOwner);
+    // email소유자 컬렉션에 그룹 추가
     const message = await addMemberGroup(membername, groupID, groupName);
     res.status(200).json(message);
   } catch (error) {

@@ -5,7 +5,7 @@ const conn_str = process.env.mongoURI;
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 
-// token과 secretkey이용해서 _id, username추출
+// token과 secretkey이용해서 membername추출
 const extractMemberName = async (email) => {
   try {
     const client = await MongoClient.connect(conn_str);
@@ -48,23 +48,7 @@ const extractOwnerName = async (token, secretKey) => {
   }
 };
 
-const extractMemberID = async (membername) => {
-  try {
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('search');
-    const usersCollection = database.collection(membername);
-    const user = await usersCollection.findOne({ user: membername });
-    if (user) {
-      memberID = user._id;
-      client.close();
-      return memberID;
-    }
-  } catch (error) {
-    throw error;
-  }
-};
-
-// test->memberName에 group추가하고 ID반환
+// test->group에 member추가하고 ID반환
 const addGroupMember = async (memberID, groupname, groupowner) => {
   try {
     const client = await MongoClient.connect(conn_str);
@@ -73,11 +57,13 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
     const query = {
       groupName: groupname,
       groupOwner: groupowner,
-      members: { $ne: memberID }, // 중복된 값이 없는 경우에만 추가
     };
     const update = { $addToSet: { members: memberID } };
     await groupCollection.updateOne(query, update);
-    const updatedDocument = await groupCollection.findOne({ groupName: groupname, groupOwner: groupowner });
+    const updatedDocument = await groupCollection.findOne(query);
+    if (!updatedDocument) {
+      throw new Error('멤버 추가에 실패했습니다.');
+    }
     const insertedID = updatedDocument._id;
 
     client.close();
@@ -87,26 +73,46 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
   }
 };
 
-const addMemberGroup = async (memberName, groupID, groupName) => {
+// search->memberName에 groupname추가, memberID반환
+const addGroupInUser = async (memberName, groupName) => {
   try {
     const client = await MongoClient.connect(conn_str);
     const database = client.db('search');
     const memberCollection = database.collection(memberName);
 
-    // 중복 처리를 위해 이미 해당 문서가 있는지 확인
-    const existingDocument = await memberCollection.findOne({ groupName: groupName, group: groupID });
+    // 중복 처리를 위해 이미 해당 멤버가 있는지 확인
+    const existingDocument = await memberCollection.findOne({ groupName: groupName });
     if (existingDocument) {
       client.close();
-      return { message: '이미 해당 그룹이 존재합니다. ' };
+      return groupName;
     }
+
     const document = {
       groupName: groupName,
-      group: groupID,
     };
 
-    await memberCollection.insertOne(document);
+    const result = await memberCollection.insertOne(document);
+    const insertedID = result.insertedId;
     client.close();
-    return { message: '멤버 추가 성공' };
+    return insertedID;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const addGroupID = async (groupID, memberID, memberName) => {
+  try {
+    const client = await MongoClient.connect(conn_str);
+    const database = client.db('search');
+    const memberCollection = database.collection(memberName);
+    const query = {
+      _id: memberID,
+    };
+    const update = { $set: { group: groupID } };
+
+    await memberCollection.updateOne(query, update);
+    client.close();
+    return { message: 'groupID 정상 추가' };
   } catch (error) {
     throw error;
   }
@@ -117,11 +123,12 @@ router.post('/', async (req, res) => {
     const { userToken, groupName, email } = req.body;
     const membername = await extractMemberName(email);
     const groupOwner = await extractOwnerName(userToken, process.env.jwtSecret);
-    const memberID = await extractMemberID(membername);
-    // 그룹 멤버에 email의 소유자 멤버를 추가
+    const memberID = await addGroupInUser(membername, groupName);
+    if (memberID === groupName) {
+      return res.json({ message: '이미 추가된 멤버' });
+    }
     const groupID = await addGroupMember(memberID, groupName, groupOwner);
-    // email소유자 컬렉션에 그룹 추가
-    const message = await addMemberGroup(membername, groupID, groupName);
+    const message = await addGroupID(groupID, memberID, membername);
     res.status(200).json(message);
   } catch (error) {
     res.status(400).json({ message: '멤버 추가 실패' });

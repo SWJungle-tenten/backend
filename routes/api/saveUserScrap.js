@@ -7,7 +7,7 @@ const { ObjectId } = require('mongodb');
 
 // token과 secretkey이용해서 _id, username추출
 const extractUserName = async (token, secretKey) => {
-  try {
+  try{
     const decoded = jwt.verify(token, secretKey);
     const decodedUser = decoded.user; // 사용자 ID 반환
     const userID = String(decodedUser.id);
@@ -128,7 +128,6 @@ router.post('/', async (req, res) => {
   const { userToken, keyWord, url, title } = req.body;
   const dateTime = await getDateAndTime();
   const username = await extractUserName(userToken, process.env.jwtSecret);
-  // 6489af7bf433c92057edd0b0
   saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title, res);
 });
 

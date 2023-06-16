@@ -1,7 +1,7 @@
 const express = require("express");
 const connectDB = require("./config/db");
 const app = express();
-const PORT = 8080;
+
 app.use(express.json());
 const cors = require("cors");
 app.use(cors());
@@ -16,6 +16,7 @@ const io = new Server(server);
 const { extractUserName, keyWordByDate } = require("./function/keyWordByDate");
 const { saveUserScrap } = require('./function/saveUserScrap');
 const { getDateAndTime } = require('./function/getDateAndTime');
+const { deleteKeyWord } = require('./function/deleteKeyWord');
 
 app.get("/", (req, res) => {
   res.send("API Running");
@@ -23,11 +24,6 @@ app.get("/", (req, res) => {
 
 connectDB();
 
-// app.get("/", (req, res) => {
-//   res.send("API Running");
-// });
-
-/*
 const authRouter = require("./routes/api/auth");
 app.use("/api/auth", authRouter);
 
@@ -37,24 +33,12 @@ app.use("/api/register", registerRouter);
 const loginRouter = require("./routes/api/login");
 app.use("/api/login", loginRouter);
 
-const deleteUserScrapRouter = require("./routes/api/deleteUserScrap");
-app.use("/api/deleteUserScrap", deleteUserScrapRouter);
-
-const saveUserScrapRouter = require("./routes/api/saveUserScrap");
-app.use("/api/saveUserScrap", saveUserScrapRouter);
-
-const keyWordByDateRouter = require("./routes/api/keyWordByDate");
-app.use("/api/keyWordByDate", keyWordByDateRouter);
-
-const deleteKeyWordRouter = require("./routes/api/deleteKeyWord");
-app.use("/api/deleteKeyWord", deleteKeyWordRouter);
-
 const giveUserName = require("./routes/api/giveUserName");
 app.use("/api/giveUserName", giveUserName);
 
 const logoutRouter = require("./routes/api/logout");
 app.use("/api/logout", logoutRouter);
-*/
+
 
 
 // connectDB();
@@ -76,7 +60,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("saveUserScrap request from client", async (msg) => {
-    
     // saveUserScrap
     const dateTime = await getDateAndTime();
     const username = await extractUserName(msg.userToken, process.env.jwtSecret);
@@ -86,6 +69,19 @@ io.on("connection", (socket) => {
     const dataToSend = await keyWordByDate(username);
 
     socket.emit("saveUserScrap respond from server", {
+      dataToSend
+    });
+  });
+
+  socket.on("deleteKeyWord request from client", async (msg) => {
+
+    const username = await extractUserName(msg.userToken, process.env.jwtSecret);
+    const result = await deleteKeyWord(username, msg.keyWord, msg.date);
+    // DB에 update된 내용을 다시 보내주기
+    console.log(result);
+    const dataToSend = await keyWordByDate(username);
+
+    socket.emit("deleteKeyWord respond from server", {
       dataToSend
     });
   });

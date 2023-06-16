@@ -5,13 +5,20 @@ const app = express();
 app.use(express.json());
 const cors = require("cors");
 app.use(cors());
+
 app.use(express.json({ extended: false }));
 
 /* socket.io */
 const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST","DELETE"]
+  }
+});
+
 
 const { extractUserName, keyWordByDate } = require("./function/keyWordByDate");
 const { saveUserScrap } = require('./function/saveUserScrap');

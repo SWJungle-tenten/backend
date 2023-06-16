@@ -36,17 +36,30 @@ const makeGroup = async (username, groupName) => {
     const groupOwner = username;
     const members = [];
 
+    const query = {
+      groupName: groupName,
+      groupOwner: groupOwner,
+    };
+
+    // 동일한 groupName과 groupOwner를 가진 도큐먼트가 있는지 확인
+    const existingDocument = await groupCollection.findOne(query);
+    if (existingDocument) {
+      // 이미 도큐먼트가 존재하는 경우 해당 도큐먼트의 _id 반환
+      client.close();
+      return groupName;
+    }
+
     const groupDocument = {
       groupName: groupName,
       groupOwner: groupOwner,
       members: members,
     };
 
-    // 그룹 컬렉션이 존재하지 않으면 새로 생성합니다.
-    const collectionExists = (await groupCollection.countDocuments()) > 0;
-    if (!collectionExists) {
-      await database.createCollection('group');
-    }
+    // // 그룹 컬렉션이 존재하지 않으면 새로 생성합니다.
+    // const collectionExists = (await groupCollection.countDocuments()) > 0;
+    // if (!collectionExists) {
+    //   await database.createCollection('group');
+    // }
 
     const result = await groupCollection.insertOne(groupDocument);
     console.log('그룹 다큐먼트 추가');
@@ -84,6 +97,9 @@ router.post('/', async (req, res) => {
     const { userToken, groupName } = req.body;
     const username = await extractUserName(userToken, process.env.jwtSecret);
     const insertedID = await makeGroup(username, groupName);
+    if (insertedID === groupName) {
+      return res.status(400).json({ message: '같은 이름의 그룹이 이미 존재' });
+    }
     await addGroupInUser(groupName, username, insertedID);
     res.status(200).json({ message: '그룹 추가 완료' });
   } catch (error) {

@@ -14,7 +14,7 @@ const extractUserName = async (token, secretKey) => {
     const client = await MongoClient.connect(conn_str);
     const database = client.db('test');
     const usersCollection = database.collection('users');
-    const user = await usersCollection.findOne({_id: new ObjectId(userID)});
+    const user = await usersCollection.findOne({ _id: new ObjectId(userID) });
     if (user) {
       const userName = user.name;
       return userName;

@@ -52,6 +52,10 @@ app.use('/api/saveUserScrap', saveUserScrapRouter);
 io.on('connection', (socket) => {
   console.log('a user connected');
 
+  socket.on('scrapDataUpdate', (data) => {
+    console.log('소켓 연결 성고옹~~', data);
+  });
+
   socket.on('check storage request from client', async (msg) => {
     const userToken = msg.userToken;
     const username = await extractUserName(userToken);

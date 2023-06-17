@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const conn_str = process.env.mongoURI;
 const jwt = require('jsonwebtoken');
-const { ObjectId } = require('mongodb');
+const app = express();
+
+app.use(express.json());
+const cors = require('cors');
+app.use(cors());
+
 /* socket.io */
 const http = require('http');
 const server = http.createServer(app);
@@ -14,6 +19,9 @@ const io = new Server(server, {
     methods: ['GET', 'POST', 'DELETE'],
   },
 });
+
+const { keyWordByDate } = require('../../function/keyWordByDate');
+app.set('io', io);
 
 // token과 secretkey이용해서 _id, username추출
 const extractUserName = async (token, secretKey) => {
@@ -72,17 +80,15 @@ const saveUserScrap = async (username, keyWord, url, date, time, title, res) => 
       time: time,
       date: date,
     };
-    const result = await scrapCollection.findOne({ title: title });
+    const result = await scrapCollection.findOne({ keyWord: keyWord, title: title });
     if (result) {
       console.log('이미 있는 스크랩입니다.');
-      return res.status(409).send('이미 있는 스크랩');
+      res.status(409).send('이미 있는 스크랩');
     } else {
       const insertResult = await scrapCollection.insertOne(newScrap);
       if (insertResult.insertedId) {
         console.log('스크랩이 성공적으로 저장되었습니다.');
-        const dataToSend = await keyWordByDate(username);
-        io.emit('scrapDataUpdate', dataToSend);
-        res.status(200).json({ message: '스크랩 성공' });
+        return;
       } else {
         console.log('스크랩 저장에 실패했습니다.');
         res.status(500).json({ message: '스크랩 실패' });
@@ -98,10 +104,19 @@ const saveUserScrap = async (username, keyWord, url, date, time, title, res) => 
 };
 
 router.post('/', async (req, res) => {
-  const { userToken, keyWord, url, title } = req.body;
-  const dateTime = await getDateAndTime();
-  const username = await extractUserName(userToken, process.env.jwtSecret);
-  await saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title, res);
+  try {
+    const { userToken, keyWord, url, title } = req.body;
+    const dateTime = await getDateAndTime();
+    const username = await extractUserName(userToken, process.env.jwtSecret);
+    await saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title, res);
+    const dataToSend = await keyWordByDate(username);
+    io.emit('scrapDataUpdate', dataToSend);
+    console.log(dataToSend);
+    res.status(200).json({ message: 'Scrap saved successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 module.exports = router;

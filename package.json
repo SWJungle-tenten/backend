@@ -11,6 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "artillery": "^2.0.0-33",
+    "artillery-engine-socketio-v3": "^1.2.0",
     "bcryptjs": "^2.4.3",
     "config": "^3.3.9",
     "cookie-parser": "^1.4.6",

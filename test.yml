@@ -1,0 +1,53 @@
+config:
+  target: "http://localhost:6000"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+  engines:
+   socketio-v3: {}
+
+scenarios:
+  - name: check storage
+    engine: socketio-v3
+    flow:
+      # wait for the WebSocket upgrade (optional)
+      - think: 1
+
+      # # basic emit
+      # - emit:
+      #     channel: "hello"
+      #     data: "world"
+
+      # # emit an object
+      # - emit:
+      #     channel: "hello"
+      #     data:
+      #       id: 42
+      #       status: "in progress"
+      #       tags:
+      #         - "tag1"
+      #         - "tag2"
+
+      # # emit in a custom namespace
+      # - namespace: "/my-namespace"
+      #   emit:
+      #     channel: "hello"
+      #     data: "world"
+
+      # emit with acknowledgement
+      - emit:
+          channel: "check storage request from client"  # 클라이언트에서 emit 하는 채널
+          data:
+              "userToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNjQ4Y2FiNDJhYWNkMmQyMGNlYzQ3MWJkIn0sImlhdCI6MTY4Njk3NDk2MiwiZXhwIjoxNjg3MzM0OTYyfQ.R26wZ9qZQcgZp8weW5UJ5VwO0-LCXGLECJO45KCwkuo"
+        acknowledge:
+          match:
+            value: "check storage respond from server"  # 서버에서 보내는 채널
+
+      # do nothing for 30 seconds then disconnect
+#      - think: 30
+
+
+# npx artillery run test.yml
+
+
+

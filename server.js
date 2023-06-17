@@ -15,16 +15,15 @@ const { Server } = require("socket.io");
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
-    methods: ["GET", "POST","DELETE"]
-  }
+    methods: ["GET", "POST", "DELETE"],
+  },
 });
 
-
 const { extractUserName, keyWordByDate } = require("./function/keyWordByDate");
-const { saveUserScrap } = require('./function/saveUserScrap');
-const { getDateAndTime } = require('./function/getDateAndTime');
-const { deleteKeyWord } = require('./function/deleteKeyWord');
-const { deleteUserScrap } = require('./function/deleteUserScrap');
+const { saveUserScrap } = require("./function/saveUserScrap");
+const { getDateAndTime } = require("./function/getDateAndTime");
+const { deleteKeyWord } = require("./function/deleteKeyWord");
+const { deleteUserScrap } = require("./function/deleteUserScrap");
 
 app.get("/", (req, res) => {
   res.send("API Running");
@@ -56,46 +55,68 @@ io.on("connection", (socket) => {
     const dataToSend = await keyWordByDate(username);
 
     socket.emit("check storage respond from server", {
-      dataToSend
+      dataToSend,
     });
   });
 
-  socket.on("saveUserScrap request from client", async (msg) => {
-    // saveUserScrap
-    const dateTime = await getDateAndTime();
-    const username = await extractUserName(msg.userToken, process.env.jwtSecret);
-    const result = await saveUserScrap(username, msg.keyWord, msg.url, dateTime.date, dateTime.time, msg.title);
-    // DB에 update된 내용을 다시 보내주기
-    console.log(result);
-    const dataToSend = await keyWordByDate(username);
+  let cachedUsername;
 
+  socket.on("saveUserScrap request from client", async (msg) => {
+    // extractUserName 결과를 캐싱하여 중복 호출을 피함
+    let username = cachedUsername;
+
+    if (!username) {
+      username = await extractUserName(msg.userToken, process.env.jwtSecret);
+      cachedUsername = username;
+    }
+    const dateTime = await getDateAndTime();
+    const result = await saveUserScrap(
+      username,
+      msg.keyWord,
+      msg.url,
+      dateTime.date,
+      dateTime.time,
+      msg.title
+    );
+
+    // DB에 update된 내용을 다시 보내주기
+    const dataToSend = await keyWordByDate(username);
     socket.emit("saveUserScrap respond from server", {
-      dataToSend
+      dataToSend,
     });
   });
 
   socket.on("deleteKeyWord request from client", async (msg) => {
-
-    const username = await extractUserName(msg.userToken, process.env.jwtSecret);
+    const username = await extractUserName(
+      msg.userToken,
+      process.env.jwtSecret
+    );
     const result = await deleteKeyWord(username, msg.keyWord, msg.date);
     // DB에 update된 내용을 다시 보내주기
     console.log(result);
     const dataToSend = await keyWordByDate(username);
 
     socket.emit("deleteKeyWord respond from server", {
-      dataToSend
+      dataToSend,
     });
   });
 
   socket.on("deleteUserScrap request from client", async (msg) => {
-
-    const username = await extractUserName(msg.userToken, process.env.jwtSecret);
-    const result = await deleteUserScrap(username, msg.url, msg.title, msg.date);
+    const username = await extractUserName(
+      msg.userToken,
+      process.env.jwtSecret
+    );
+    const result = await deleteUserScrap(
+      username,
+      msg.url,
+      msg.title,
+      msg.date
+    );
     console.log(result);
     // DB에 update된 내용을 다시 보내주기
     const dataToSend = await keyWordByDate(username);
     socket.emit("deleteUserScrap respond from server", {
-      dataToSend
+      dataToSend,
     });
   });
 });

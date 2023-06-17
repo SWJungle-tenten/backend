@@ -102,7 +102,7 @@ const saveUserScrap = async (username, keyWord, url, date, time, title, res) => 
         user: username,
         keyWords: [
           {
-            keyWord: keyWord,
+            keyWord: keyWord, 
             data: [
               {
                 title: title,

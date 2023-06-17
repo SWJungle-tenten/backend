@@ -50,6 +50,8 @@ const extractMemberName = async (email) => {
 const makeGroup = async (username, groupName) => {
   try {
     const client = await MongoClient.connect(conn_str);
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
     console.log('Atlas에 연결 완료');
     const database = client.db('test');
     const groupCollection = database.collection('group');
@@ -65,6 +67,8 @@ const makeGroup = async (username, groupName) => {
     // 동일한 groupName과 groupOwner를 가진 도큐먼트가 있는지 확인
     const existingDocument = await groupCollection.findOne(query);
     if (existingDocument) {
+      await session.commitTransaction(); // 트랜잭션 커밋
+      session.endSession(); // 세션 종료
       client.close();
       return groupName;
     }
@@ -76,8 +80,9 @@ const makeGroup = async (username, groupName) => {
     };
 
     const result = await groupCollection.insertOne(groupDocument);
-    console.log('그룹 다큐먼트 추가');
 
+    await session.commitTransaction(); // 트랜잭션 커밋
+    session.endSession(); // 세션 종료
     client.close();
     return result.insertedId;
   } catch (error) {
@@ -88,7 +93,8 @@ const makeGroup = async (username, groupName) => {
 const addGroupInUser = async (groupName, username, insertedID) => {
   try {
     const client = await MongoClient.connect(conn_str);
-    console.log('Atlas에 연결 완료');
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
     const database = client.db('search');
     const userCollection = database.collection(username);
 
@@ -101,22 +107,31 @@ const addGroupInUser = async (groupName, username, insertedID) => {
     await userCollection.insertOne(groupDocument);
     console.log('유저 컬렉션에 그룹 추가 완료');
 
+    await session.commitTransaction(); // 트랜잭션 커밋
+    session.endSession(); // 세션 종료
     client.close();
   } catch (error) {
+    await session.abortTransaction(); // 트랜잭션 롤백
+    session.endSession(); // 세션 종료
+    client.close();
+
     throw error;
   }
 };
 
-// search->memberName에 groupname추가, memberID반환
 const addGroupInMember = async (memberName, groupName, groupOwner) => {
   try {
     const client = await MongoClient.connect(conn_str);
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
     const database = client.db('search');
     const memberCollection = database.collection(memberName);
 
     // 중복 처리를 위해 이미 해당 멤버가 있는지 확인
     const existingDocument = await memberCollection.findOne({ groupName: groupName, groupOwner: groupOwner });
     if (existingDocument) {
+      await session.abortTransaction(); // 트랜잭션 롤백
+      session.endSession(); // 세션 종료
       client.close();
       return groupName;
     }
@@ -128,9 +143,17 @@ const addGroupInMember = async (memberName, groupName, groupOwner) => {
 
     const result = await memberCollection.insertOne(document);
     const insertedID = result.insertedId;
+
+    await session.commitTransaction(); // 트랜잭션 커밋
+    session.endSession(); // 세션 종료
     client.close();
+
     return insertedID;
   } catch (error) {
+    await session.abortTransaction(); // 트랜잭션 롤백
+    session.endSession(); // 세션 종료
+    client.close();
+
     throw error;
   }
 };
@@ -138,6 +161,8 @@ const addGroupInMember = async (memberName, groupName, groupOwner) => {
 const addGroupMember = async (memberID, groupname, groupowner) => {
   try {
     const client = await MongoClient.connect(conn_str);
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
     const database = client.db('test');
     const groupCollection = database.collection('group');
     const query = {
@@ -145,23 +170,38 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
       groupOwner: groupowner,
     };
     const update = { $addToSet: { members: memberID } };
-    await groupCollection.updateOne(query, update);
+
+    await groupCollection.updateOne(query, update, { session }); // 세션 사용하여 업데이트
+
     const updatedDocument = await groupCollection.findOne(query);
     if (!updatedDocument) {
-      throw new Error('멤버 추가에 실패했습니다.');
+      await session.abortTransaction(); // 트랜잭션 롤백
+      session.endSession(); // 세션 종료
+      client.close();
+      throw new Error('이미 있는 멤버');
     }
+
     const insertedID = updatedDocument._id;
 
+    await session.commitTransaction(); // 트랜잭션 커밋
+    session.endSession(); // 세션 종료
     client.close();
+
     return insertedID;
   } catch (error) {
-    console.log(error);
+    await session.abortTransaction(); // 트랜잭션 롤백
+    session.endSession(); // 세션 종료
+    client.close();
+
+    throw error;
   }
 };
 
 const addGroupID = async (groupID, memberID, memberName) => {
   try {
     const client = await MongoClient.connect(conn_str);
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
     const database = client.db('search');
     const memberCollection = database.collection(memberName);
     const query = {
@@ -169,10 +209,17 @@ const addGroupID = async (groupID, memberID, memberName) => {
     };
     const update = { $set: { group: groupID } };
 
-    await memberCollection.updateOne(query, update);
+    await memberCollection.updateOne(query, update, { session }); // 세션 사용하여 업데이트
+
+    await session.commitTransaction(); // 트랜잭션 커밋
+    session.endSession(); // 세션 종료
     client.close();
-    return { message: '멤버 추가 완료' };
+
+    return;
   } catch (error) {
+    await session.abortTransaction(); // 트랜잭션 롤백
+    session.endSession(); // 세션 종료
+    client.close();
     throw error;
   }
 };
@@ -187,6 +234,10 @@ router.post('/', async (req, res) => {
     }
     await addGroupInUser(groupName, groupOwner, insertedID);
     // members에 멤버들 추가
+    if (members.length === 0) {
+      // members 배열이 비어있을 경우 예외 처리
+      return res.status(400).json({ message: '멤버가 없는 그룹 추가 완료' });
+    }
     for (const memberEmail of members) {
       const memberName = await extractMemberName(memberEmail);
       const memberID = await addGroupInMember(memberName, groupName, groupOwner);
@@ -199,7 +250,7 @@ router.post('/', async (req, res) => {
 
     res.status(200).json({ message: '그룹 및 멤버 추가 완료' });
   } catch (error) {
-    res.status(500).json('그룹 생성 실패');
+    res.status(500).json({ message: error });
   }
 });
 

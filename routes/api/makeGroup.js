@@ -58,12 +58,10 @@ const makeGroup = async (username, groupName) => {
 
     const groupOwner = username;
     const members = [];
-
     const query = {
       groupName: groupName,
       groupOwner: groupOwner,
     };
-
     // 동일한 groupName과 groupOwner를 가진 도큐먼트가 있는지 확인
     const existingDocument = await groupCollection.findOne(query);
     if (existingDocument) {
@@ -72,15 +70,12 @@ const makeGroup = async (username, groupName) => {
       client.close();
       return groupName;
     }
-
     const groupDocument = {
       groupName: groupName,
       groupOwner: groupOwner,
       members: members,
     };
-
     const result = await groupCollection.insertOne(groupDocument);
-
     await session.commitTransaction(); // 트랜잭션 커밋
     session.endSession(); // 세션 종료
     client.close();
@@ -97,16 +92,12 @@ const addGroupInUser = async (groupName, username, insertedID) => {
     session.startTransaction(); // 트랜잭션 시작
     const database = client.db('search');
     const userCollection = database.collection(username);
-
     const groupDocument = {
       groupName: groupName,
       groupOwner: username,
       group: insertedID, // 그룹 도큐먼트의 ID
     };
-
     await userCollection.insertOne(groupDocument);
-    console.log('유저 컬렉션에 그룹 추가 완료');
-
     await session.commitTransaction(); // 트랜잭션 커밋
     session.endSession(); // 세션 종료
     client.close();
@@ -114,7 +105,6 @@ const addGroupInUser = async (groupName, username, insertedID) => {
     await session.abortTransaction(); // 트랜잭션 롤백
     session.endSession(); // 세션 종료
     client.close();
-
     throw error;
   }
 };
@@ -126,7 +116,6 @@ const addGroupInMember = async (memberName, groupName, groupOwner) => {
     session.startTransaction(); // 트랜잭션 시작
     const database = client.db('search');
     const memberCollection = database.collection(memberName);
-
     // 중복 처리를 위해 이미 해당 멤버가 있는지 확인
     const existingDocument = await memberCollection.findOne({ groupName: groupName, groupOwner: groupOwner });
     if (existingDocument) {
@@ -135,19 +124,15 @@ const addGroupInMember = async (memberName, groupName, groupOwner) => {
       client.close();
       return groupName;
     }
-
     const document = {
       groupName: groupName,
       groupOwner: groupOwner,
     };
-
     const result = await memberCollection.insertOne(document);
     const insertedID = result.insertedId;
-
     await session.commitTransaction(); // 트랜잭션 커밋
     session.endSession(); // 세션 종료
     client.close();
-
     return insertedID;
   } catch (error) {
     await session.abortTransaction(); // 트랜잭션 롤백
@@ -170,29 +155,23 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
       groupOwner: groupowner,
     };
     const update = { $addToSet: { members: memberID } };
-
     await groupCollection.updateOne(query, update, { session }); // 세션 사용하여 업데이트
-
     const updatedDocument = await groupCollection.findOne(query);
     if (!updatedDocument) {
       await session.abortTransaction(); // 트랜잭션 롤백
       session.endSession(); // 세션 종료
       client.close();
-      throw new Error('이미 있는 멤버');
+      throw new Error('멤버 추가 실패');
     }
-
     const insertedID = updatedDocument._id;
-
     await session.commitTransaction(); // 트랜잭션 커밋
     session.endSession(); // 세션 종료
     client.close();
-
     return insertedID;
   } catch (error) {
     await session.abortTransaction(); // 트랜잭션 롤백
     session.endSession(); // 세션 종료
     client.close();
-
     throw error;
   }
 };
@@ -233,10 +212,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: '같은 이름의 그룹이 이미 존재' });
     }
     await addGroupInUser(groupName, groupOwner, insertedID);
-    // members에 멤버들 추가
     if (members.length === 0) {
       // members 배열이 비어있을 경우 예외 처리
-      return res.status(400).json({ message: '멤버가 없는 그룹 추가 완료' });
+      return res.status(200).json({ message: '멤버가 없는 그룹 추가 완료' });
     }
     for (const memberEmail of members) {
       const memberName = await extractMemberName(memberEmail);

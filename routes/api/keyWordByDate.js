@@ -34,39 +34,66 @@ const keyWordByDate = async (username) => {
   try {
     const client = await MongoClient.connect(conn_str);
     console.log('Atlas에 연결 완료');
-    const database = client.db('search');
+    const database = client.db('dbtest');
     const userScrapCollection = database.collection(username);
-    const result = await userScrapCollection.findOne({ user: username });
-    // 날짜를 기준으로 keyWord 묶기
-    if (result === null) {
-      return result;
-    }
-    const groupedByDate = {};
-    result.keyWords.forEach((keyword) => {
-      const date = keyword.date;
-      if (!groupedByDate[date]) {
-        groupedByDate[date] = [];
-      }
-      groupedByDate[date].push(keyword);
-    });
-
-    // keyWord 순서를 data 배열에 있는 시간 순으로 정렬
-    Object.values(groupedByDate).forEach((keywords) => {
-      keywords.sort((a, b) => b.data[0].time.localeCompare(a.data[0].time));
-      keywords.forEach((keyword) => {
-        keyword.data.sort((a, b) => b.time.localeCompare(a.time));
-      });
-    });
-
-    const sortedByDate = Object.entries(groupedByDate).sort((a, b) => b[0].localeCompare(a[0]));
-    // 클라이언트에게 보낼 데이터 생성
-    const dataToSend = sortedByDate.map(([date, keywords]) => ({
-      date,
-      keywords,
-    }));
-    // 클라이언트에게 데이터 전송
+    const cursor = userScrapCollection.aggregate([
+      {
+        $sort: {
+          date: -1,
+          time: -1,
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: '$date',
+            keyword: '$keyWord',
+          },
+          title: {
+            $push: '$title',
+          },
+          url: {
+            $push: '$url',
+          },
+          time: {
+            $push: '$time',
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$_id.date',
+          keywords: {
+            $push: {
+              keyword: '$_id.keyword',
+              titles: '$title',
+              urls: '$url',
+              times: '$time',
+            },
+          },
+        },
+      },
+      {
+        $unwind: '$keywords',
+      },
+      {
+        $sort: {
+          'keywords.times': -1,
+        },
+      },
+      {
+        $project: {
+          date: '$_id',
+          keywords: 1,
+          _id: 0,
+        },
+      },
+    ]);
+    const result = await cursor.toArray();
+    // result를 클라이언트에게 전송
     client.close();
-    return dataToSend;
+
+    return result;
   } catch (error) {
     throw error;
   }

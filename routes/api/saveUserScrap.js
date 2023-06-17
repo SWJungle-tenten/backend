@@ -4,17 +4,27 @@ const { MongoClient } = require('mongodb');
 const conn_str = process.env.mongoURI;
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
+/* socket.io */
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST', 'DELETE'],
+  },
+});
 
 // token과 secretkey이용해서 _id, username추출
 const extractUserName = async (token, secretKey) => {
-  try{
+  try {
     const decoded = jwt.verify(token, secretKey);
     const decodedUser = decoded.user; // 사용자 ID 반환
     const userID = String(decodedUser.id);
     const client = await MongoClient.connect(conn_str);
     const database = client.db('test');
     const usersCollection = database.collection('users');
-    const user = await usersCollection.findOne({_id: new ObjectId(userID)});
+    const user = await usersCollection.findOne({ _id: new ObjectId(userID) });
     if (user) {
       const userName = user.name;
       return userName;
@@ -32,7 +42,10 @@ const getDateAndTime = async () => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const date = `${year}-${month}-${day}`;
-  const time = now.toLocaleTimeString(); // 시간을 추출 (HH:mm:ss 형식)
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+  const time = `${hours}:${minutes}:${seconds}`;
   const dateTime = {
     time: time,
     date: date,
@@ -42,85 +55,45 @@ const getDateAndTime = async () => {
 
 // 개인 유저 스크랩하기
 const saveUserScrap = async (username, keyWord, url, date, time, title, res) => {
+  let client;
   try {
-    const client = await MongoClient.connect(conn_str);
+    client = await MongoClient.connect(conn_str);
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
     console.log('Atlas에 연결 완료');
-    const database = client.db('search');
-    const userScrapCollection = database.collection(username);
-    const collectionExists = (await userScrapCollection.countDocuments()) > 0;
+    const database = client.db('dbtest');
+    const scrapCollection = database.collection(username);
 
-    // user에 해당하는 스크랩 컬렉션이 있다면
-    if (collectionExists) {
-      const query = {
-        'keyWords.keyWord': keyWord,
-        'keyWords.date': date,
-      };
-      const keyWordObj = {
-        title: title,
-        url: url,
-        time: time,
-      };
-
-      const existingScrap = await userScrapCollection.findOne(query);
-      if (existingScrap && existingScrap.keyWords.some((kw) => kw.data.some((data) => data.title === title))) {
-        console.log('중복된 스크랩입니다.');
-        return res.status(409).send('중복된 스크랩');
-      }
-
-      const update = {
-        $push: {
-          'keyWords.$.data': keyWordObj,
-        },
-      };
-      const result = await userScrapCollection.updateOne(query, update);
-      // 날짜나 키워드가 달라지면 새로운 keyWord 필드 추가
-      if (result.matchedCount === 0) {
-        await userScrapCollection.updateOne(
-          { user: username },
-          {
-            $push: {
-              keyWords: {
-                keyWord: keyWord,
-                data: [
-                  {
-                    title: title,
-                    url: url,
-                    time: time,
-                  },
-                ],
-                date: date,
-              },
-            },
-          }
-        );
-      } else {
-        console.log('url이 성공적으로 추가되었다.');
-      }
+    const newScrap = {
+      user: username,
+      keyWord: keyWord,
+      title: title,
+      url: url,
+      time: time,
+      date: date,
+    };
+    const result = await scrapCollection.findOne({ title: title });
+    if (result) {
+      console.log('이미 있는 스크랩입니다.');
+      return res.status(409).send('이미 있는 스크랩');
     } else {
-      // user에 해당하는 스크랩 컬렉션이 없다면 완전 새롭게 생성
-      const newDocument = {
-        user: username,
-        keyWords: [
-          {
-            keyWord: keyWord,
-            data: [
-              {
-                title: title,
-                url: url,
-                time: time,
-              },
-            ],
-            date: date,
-          },
-        ],
-      };
-      await userScrapCollection.insertOne(newDocument);
+      const insertResult = await scrapCollection.insertOne(newScrap);
+      if (insertResult.insertedId) {
+        console.log('스크랩이 성공적으로 저장되었습니다.');
+        const dataToSend = await keyWordByDate(username);
+        io.emit('scrapDataUpdate', dataToSend);
+        res.status(200).json({ message: '스크랩 성공' });
+      } else {
+        console.log('스크랩 저장에 실패했습니다.');
+        res.status(500).json({ message: '스크랩 실패' });
+      }
     }
-    client.close();
-    res.status(200).send('저장완료');
   } catch (error) {
-    console.error('Atlas 및 데이터 저장 오류:', error);
-    res.status(400);
+    throw error;
+  } finally {
+    if (client) {
+      client.close();
+    }
   }
 };
 
@@ -128,7 +101,7 @@ router.post('/', async (req, res) => {
   const { userToken, keyWord, url, title } = req.body;
   const dateTime = await getDateAndTime();
   const username = await extractUserName(userToken, process.env.jwtSecret);
-  saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title, res);
+  await saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title, res);
 });
 
 module.exports = router;

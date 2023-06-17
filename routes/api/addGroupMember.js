@@ -113,7 +113,7 @@ const addGroupID = async (groupID, memberID, memberName) => {
 
     await memberCollection.updateOne(query, update);
     client.close();
-    return { message: 'groupID 정상 추가' };
+    return { message: '멤버 추가 완료' };
   } catch (error) {
     throw error;
   }
@@ -132,7 +132,7 @@ router.post('/', async (req, res) => {
     const message = await addGroupID(groupID, memberID, membername);
     res.status(200).json(message);
   } catch (error) {
-    res.status(400).json({ message: '멤버 추가 실패' });
+    res.status(400).json({ message: error });
   }
 });
 

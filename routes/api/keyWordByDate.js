@@ -34,7 +34,7 @@ const keyWordByDate = async (username) => {
   try {
     const client = await MongoClient.connect(conn_str);
     console.log('Atlas에 연결 완료');
-    const database = client.db('dbtest');
+    const database = client.db('search');
     const userScrapCollection = database.collection(username);
     const cursor = userScrapCollection.aggregate([
       {

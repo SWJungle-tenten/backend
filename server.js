@@ -49,6 +49,12 @@ app.use('/api/logout', logoutRouter);
 const saveUserScrapRouter = require('./routes/api/saveUserScrap');
 app.use('/api/saveUserScrap', saveUserScrapRouter);
 
+const makeGroup = require('./routes/api/makeGroup');
+app.use('/api/makeGroup', makeGroup);
+
+const addGroupMember = require('./routes/api/addGroupMember');
+app.use('/api/addGroupMember', addGroupMember);
+
 io.on('connection', (socket) => {
   console.log('a user connected');
 

@@ -21,7 +21,7 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-const { extractUserName, keyWordByDate } = require('./function/keyWordByDate');
+const { extractUserName } = require('./function/keyWordByDate');
 const { saveUserScrap } = require('./function/saveUserScrap');
 const { getDateAndTime } = require('./function/getDateAndTime');
 const { deleteKeyWord } = require('./function/deleteKeyWord');
@@ -59,6 +59,12 @@ app.use('/api/addGroupMember', addGroupMemberRouter);
 
 const saveGroupScrapRouter = require('./routes/api/saveGroupScrap');
 app.use('/api/saveGroupScrap', saveGroupScrapRouter);
+
+const showGroupScrap = require('./routes/api/showGroupScrap');
+app.use('/api/showGroupScrap', showGroupScrap);
+
+const keyWordByDate = require('./routes/api/keyWordByDate');
+app.use('/api/keyWordByDate', keyWordByDate);
 
 io.on('connection', (socket) => {
   console.log('a user connected');

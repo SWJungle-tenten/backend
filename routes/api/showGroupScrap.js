@@ -2,41 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { MongoClient } = require('mongodb');
 const conn_str = process.env.mongoURI;
-const jwt = require('jsonwebtoken');
-const { ObjectId } = require('mongodb');
-
-// token과 secretkey이용해서 _id, username추출
-const extractUserName = async (token, secretKey) => {
-  try {
-    const decoded = jwt.verify(token, secretKey);
-    const decodedUser = decoded.user; // 사용자 ID 반환
-    const userID = String(decodedUser.id);
-
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('test');
-    const usersCollection = database.collection('users');
-
-    const user = await usersCollection.findOne({ _id: new ObjectId(userID) });
-
-    if (user) {
-      const userName = user.name;
-      return userName;
-    } else {
-      throw new Error('User not found');
-    }
-  } catch (error) {
-    throw new Error('Invalid token');
-  }
-};
 
 // 최신 날짜 순으로 키워드 정렬, 키워드에 해당하는 url은 시간 순으로 정렬
-const keyWordByDate = async (username) => {
+const groupKeywordByDate = async (groupOwner, groupName) => {
   try {
     const client = await MongoClient.connect(conn_str);
     console.log('Atlas에 연결 완료');
-    const database = client.db('search');
-    const userScrapCollection = database.collection(username);
-    const cursor = userScrapCollection.aggregate([
+    const database = client.db('groupScrap');
+    const collectionName = `${groupName}_${groupOwner}`;
+    const groupScrapCollection = database.collection(collectionName);
+    // 컬렉션이 없으면, 즉 아직 스크랩이 없으면 null 반환
+    const cursor = groupScrapCollection.aggregate([
       {
         $sort: {
           date: -1,
@@ -58,6 +34,9 @@ const keyWordByDate = async (username) => {
           time: {
             $push: '$time',
           },
+          user: {
+            $push: '$user',
+          },
         },
       },
       {
@@ -69,6 +48,7 @@ const keyWordByDate = async (username) => {
               titles: '$title',
               urls: '$url',
               times: '$time',
+              users: '$user',
             },
           },
         },
@@ -106,24 +86,23 @@ const keyWordByDate = async (username) => {
 };
 
 router.post('/', async (req, res) => {
-  const { userToken } = req.body;
+  const { groupName, groupOwner } = req.body;
   // const authorizationHeader = req.headers.authorization;
   // console.log(authorizationHeader)
   // if (authorizationHeader && authorizationHeader.startsWith('Bearer ')) {
   //   const userToken = authorizationHeader.substring(7); // "Bearer " 부분을 제외한 토큰 값 추출
   //   console.log(userToken);
   // }
-  const username = await extractUserName(userToken, process.env.jwtSecret);
   try {
-    const dataToSend = await keyWordByDate(username);
+    const dataToSend = await groupKeywordByDate(groupOwner, groupName);
     if (dataToSend === null) {
-      res.status(200).json({ message: '데이터가 없습니다.' });
+      res.status(200).json({ message: 'No scraped data' });
     } else {
-      res.status(200).json({ dataToSend, username });
+      res.status(200).json({ dataToSend });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: '스크랩 데이터 전송 오류' });
+    res.status(500).json({ message: error.message });
   }
 });
 

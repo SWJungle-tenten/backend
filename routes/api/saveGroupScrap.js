@@ -52,7 +52,7 @@ const saveGroupScrap = async (username, groupName, groupOwner, keyWord, url, tit
     // 중복 스크랩 검사
     const existingScrap = await usersCollection.findOne({ keyWord, title });
     if (existingScrap) {
-      return { message: 'duplicate' }; // 중복 처리
+      return 'duplicate'; // 중복 처리
     }
 
     const scrap = {
@@ -66,13 +66,21 @@ const saveGroupScrap = async (username, groupName, groupOwner, keyWord, url, tit
 
     const result = await usersCollection.insertOne(scrap);
     if (result) {
-      return; // 삽입 성공
+      return 'complete'; // 삽입 성공
     } else {
       throw new Error('Failed');
     }
   } catch (error) {
     throw new Error('Failed');
   }
+};
+
+const sendDataViaSocket = async (data) => {
+  console.log('여기야??');
+  io.emit('groupScrapDataUpdate', data);
+  io.on('error', (error) => {
+    console.error('Socket error:', error);
+  });
 };
 
 router.post('/', async (req, res) => {
@@ -84,7 +92,17 @@ router.post('/', async (req, res) => {
     const dateTime = await getDateAndTime();
 
     const username = await extractUserName(userToken, process.env.jwtSecret, client);
-    await saveGroupScrap(username, groupName, groupOwner, keyWord, url, title, dateTime.date, dateTime.time, client);
+    const result = await saveGroupScrap(
+      username,
+      groupName,
+      groupOwner,
+      keyWord,
+      url,
+      title,
+      dateTime.date,
+      dateTime.time,
+      client
+    );
     const scrap = {
       user: username,
       keyWord: keyWord,
@@ -96,9 +114,8 @@ router.post('/', async (req, res) => {
     await session.commitTransaction(); // 트랜잭션 커밋
     session.endSession(); // 세션 종료
     client.close();
-    io.emit('groupScrapDataUpdate', scrap);
-    console.log(scrap);
-    res.status(200).json({ message: 'complete' });
+    sendDataViaSocket(scrap);
+    res.status(200).json({ message: result });
   } catch (error) {
     console.error(error);
     await session.abortTransaction(); // 트랜잭션 커밋

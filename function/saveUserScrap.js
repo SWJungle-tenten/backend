@@ -2,7 +2,7 @@ require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const conn_str = process.env.mongoURI;
 
-const saveUserScrap = async (username, keyWord, url, date, time, title, res) => {
+const saveUserScrap = async (username, keyWord, url, date, time, title) => {
   let client;
   try {
     client = await MongoClient.connect(conn_str);
@@ -20,18 +20,15 @@ const saveUserScrap = async (username, keyWord, url, date, time, title, res) => 
       time: time,
       date: date,
     };
-    const result = await scrapCollection.findOne({ title: title });
+    const result = await scrapCollection.findOne({ keyWord: keyWord, title: title });
     if (result) {
-      console.log('이미 있는 스크랩입니다.');
-      return res.status(409).send('이미 있는 스크랩');
+      return 'duplicate';
     } else {
       const insertResult = await scrapCollection.insertOne(newScrap);
       if (insertResult.insertedId) {
-        console.log('스크랩이 성공적으로 저장되었습니다.');
-        res.status(200).json({ message: '스크랩 성공' });
+        return 'complete';
       } else {
-        console.log('스크랩 저장에 실패했습니다.');
-        res.status(500).json({ message: '스크랩 실패' });
+        throw new Error('Failed');
       }
     }
   } catch (error) {

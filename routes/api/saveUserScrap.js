@@ -22,6 +22,7 @@ const io = new Server(server, {
 
 const { keyWordByDate } = require('../../function/keyWordByDate');
 const { saveUserScrap } = require('../../function/saveUserScrap');
+const { getDateAndTime } = require('../../function/getDateAndTime');
 app.set('io', io);
 
 // token과 secretkey이용해서 _id, username추출
@@ -45,33 +46,23 @@ const extractUserName = async (token, secretKey) => {
   }
 };
 
-const getDateAndTime = async () => {
-  const now = new Date(); // 현재 시간을 가져옴
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const date = `${year}-${month}-${day}`;
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const seconds = now.getSeconds().toString().padStart(2, '0');
-  const time = `${hours}:${minutes}:${seconds}`;
-  const dateTime = {
-    time: time,
-    date: date,
-  };
-  return dateTime;
-};
+// const sendDataViaSocket = async (data) => {
+//   io.emit('scrapDataUpdate', data);
+//   io.on('error', (error) => {
+//     console.error('Socket error:', error);
+//   });
+// };
 
 router.post('/', async (req, res) => {
   try {
     const { userToken, keyWord, url, title } = req.body;
     const dateTime = await getDateAndTime();
     const username = await extractUserName(userToken, process.env.jwtSecret);
-    await saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title, res);
+    const result = await saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title);
     const dataToSend = await keyWordByDate(username);
-    io.emit('scrapDataUpdate', dataToSend);
-    console.log(dataToSend);
-    res.status(200).json({ message: 'Scrap saved successfully' });
+    // sendDataViaSocket(dataToSend);
+    // res.status(200).json({ message: result });
+    res.status(200).json(dataToSend);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message });

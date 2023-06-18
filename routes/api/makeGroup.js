@@ -163,10 +163,9 @@ router.post('/', async (req, res) => {
       // members 배열이 비어있을 경우 예외 처리
       return res.status(200).json({ message: '멤버가 없는 그룹 추가 완료' });
     }
-
     for (const memberEmail of members) {
-      const memberID = await extractMemberID(memberEmail, groupName, groupOwner);
-      await addGroupMember(memberID, groupName, groupOwner);
+      const memberID = await extractMemberID(memberEmail, groupName, groupOwner.name);
+      await addGroupMember(memberID, groupName, groupOwner.name);
     }
     res.status(200).json({ message: '그룹 및 멤버 추가 완료' });
   } catch (error) {

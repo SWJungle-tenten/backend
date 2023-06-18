@@ -19,7 +19,7 @@ const io = new Server(server, {
     methods: ['GET', 'POST', 'DELETE'],
   },
 });
-app.set('io', io);
+// app.set('io', io);
 
 const { getDateAndTime } = require('../../function/getDateAndTime');
 // token과 secretkey이용해서 _id, username추출
@@ -75,22 +75,14 @@ const saveGroupScrap = async (username, groupName, groupOwner, keyWord, url, tit
   }
 };
 
-const sendDataViaSocket = async (data) => {
-  console.log('여기야??');
-  io.emit('groupScrapDataUpdate', data);
-  io.on('error', (error) => {
-    console.error('Socket error:', error);
-  });
-};
-
 router.post('/', async (req, res) => {
   const client = await MongoClient.connect(conn_str);
   const session = client.startSession(); // 세션 생성
+  const io = req.app.get('io');
   session.startTransaction(); // 트랜잭션 시작
   try {
     const { userToken, groupName, groupOwner, keyWord, url, title } = req.body;
     const dateTime = await getDateAndTime();
-
     const username = await extractUserName(userToken, process.env.jwtSecret, client);
     const result = await saveGroupScrap(
       username,
@@ -103,18 +95,21 @@ router.post('/', async (req, res) => {
       dateTime.time,
       client
     );
-    const scrap = {
-      user: username,
-      keyWord: keyWord,
-      url: url,
-      title: title,
-      time: dateTime.time, // 현재 시간
-      date: dateTime.date, // 현재 날짜
-    };
-    await session.commitTransaction(); // 트랜잭션 커밋
-    session.endSession(); // 세션 종료
-    client.close();
-    sendDataViaSocket(scrap);
+    if (result !== 'duplicate') {
+      const scrap = {
+        keywords: {
+          keyword: keyWord,
+          titles: [title],
+          urls: [url],
+          times: [dateTime.time],
+        },
+        date: dateTime.date,
+      };
+      await session.commitTransaction(); // 트랜잭션 커밋
+      session.endSession(); // 세션 종료
+      client.close();
+      io.emit('scrapDataUpdate', scrap);
+    }
     res.status(200).json({ message: result });
   } catch (error) {
     console.error(error);

@@ -19,6 +19,8 @@ const io = new Server(server, {
   },
 });
 
+app.set('io', io);
+
 const { extractUserName, keyWordByDate } = require('./function/keyWordByDate');
 const { saveUserScrap } = require('./function/saveUserScrap');
 const { getDateAndTime } = require('./function/getDateAndTime');
@@ -60,10 +62,6 @@ app.use('/api/saveGroupScrap', saveGroupScrapRouter);
 
 io.on('connection', (socket) => {
   console.log('a user connected');
-
-  socket.on('scrapDataUpdate', (data) => {
-    console.log('소켓 연결 성고옹~~', data);
-  });
 
   socket.on('check storage request from client', async (msg) => {
     const userToken = msg.userToken;
@@ -119,6 +117,6 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(6000, () => {
-  console.log('listening on *:6000');
+server.listen(8080, () => {
+  console.log('listening on *:8080');
 });

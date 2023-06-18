@@ -21,6 +21,7 @@ const io = new Server(server, {
 });
 
 const { keyWordByDate } = require('../../function/keyWordByDate');
+const { saveUserScrap } = require('../../function/saveUserScrap');
 app.set('io', io);
 
 // token과 secretkey이용해서 _id, username추출
@@ -59,48 +60,6 @@ const getDateAndTime = async () => {
     date: date,
   };
   return dateTime;
-};
-
-// 개인 유저 스크랩하기
-const saveUserScrap = async (username, keyWord, url, date, time, title, res) => {
-  let client;
-  try {
-    client = await MongoClient.connect(conn_str);
-    const session = client.startSession(); // 세션 생성
-    session.startTransaction(); // 트랜잭션 시작
-    console.log('Atlas에 연결 완료');
-    const database = client.db('search');
-    const scrapCollection = database.collection(username);
-
-    const newScrap = {
-      user: username,
-      keyWord: keyWord,
-      title: title,
-      url: url,
-      time: time,
-      date: date,
-    };
-    const result = await scrapCollection.findOne({ keyWord: keyWord, title: title });
-    if (result) {
-      console.log('이미 있는 스크랩입니다.');
-      res.status(409).send('이미 있는 스크랩');
-    } else {
-      const insertResult = await scrapCollection.insertOne(newScrap);
-      if (insertResult.insertedId) {
-        console.log('스크랩이 성공적으로 저장되었습니다.');
-        return;
-      } else {
-        console.log('스크랩 저장에 실패했습니다.');
-        res.status(500).json({ message: '스크랩 실패' });
-      }
-    }
-  } catch (error) {
-    throw error;
-  } finally {
-    if (client) {
-      client.close();
-    }
-  }
 };
 
 router.post('/', async (req, res) => {

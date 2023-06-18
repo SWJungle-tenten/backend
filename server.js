@@ -40,8 +40,8 @@ app.use('/api/register', registerRouter);
 const loginRouter = require('./routes/api/login');
 app.use('/api/login', loginRouter);
 
-const giveUserName = require('./routes/api/giveUserName');
-app.use('/api/giveUserName', giveUserName);
+const giveUserNameRouter = require('./routes/api/giveUserName');
+app.use('/api/giveUserName', giveUserNameRouter);
 
 const logoutRouter = require('./routes/api/logout');
 app.use('/api/logout', logoutRouter);
@@ -49,11 +49,14 @@ app.use('/api/logout', logoutRouter);
 const saveUserScrapRouter = require('./routes/api/saveUserScrap');
 app.use('/api/saveUserScrap', saveUserScrapRouter);
 
-const makeGroup = require('./routes/api/makeGroup');
-app.use('/api/makeGroup', makeGroup);
+const makeGroupRouter = require('./routes/api/makeGroup');
+app.use('/api/makeGroup', makeGroupRouter);
 
-const addGroupMember = require('./routes/api/addGroupMember');
-app.use('/api/addGroupMember', addGroupMember);
+const addGroupMemberRouter = require('./routes/api/addGroupMember');
+app.use('/api/addGroupMember', addGroupMemberRouter);
+
+const saveGroupScrapRouter = require('./routes/api/saveGroupScrap');
+app.use('/api/saveGroupScrap', saveGroupScrapRouter);
 
 io.on('connection', (socket) => {
   console.log('a user connected');

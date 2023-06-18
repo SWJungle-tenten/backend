@@ -5,6 +5,8 @@ const conn_str = process.env.mongoURI;
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 
+const { addGroupMember } = require('../../function/addGroupMember');
+
 const extractOwnerName = async (token, secretKey) => {
   try {
     const decoded = jwt.verify(token, secretKey);
@@ -24,26 +26,6 @@ const extractOwnerName = async (token, secretKey) => {
     }
   } catch (error) {
     throw new Error('Invalid token');
-  }
-};
-
-// test->group에 member추가하고 ID반환
-const addGroupMember = async (memberID, groupname, groupowner) => {
-  try {
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('test');
-    const groupCollection = database.collection('group');
-    const query = {
-      groupName: groupname,
-      groupOwner: groupowner,
-    };
-    const update = { $addToSet: { members: memberID } };
-    await groupCollection.updateOne(query, update);
-
-    client.close();
-    return { message: '멤버 추가 성공' };
-  } catch (error) {
-    console.log(error);
   }
 };
 

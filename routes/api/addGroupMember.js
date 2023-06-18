@@ -5,27 +5,6 @@ const conn_str = process.env.mongoURI;
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 
-// token과 secretkey이용해서 membername추출
-const extractMemberName = async (email) => {
-  try {
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('test');
-    const usersCollection = database.collection('users');
-    const user = await usersCollection.findOne({ email: email });
-    if (user) {
-      username = user.name;
-      client.close();
-      return username;
-    } else {
-      client.close();
-      throw new Error('User not found');
-    }
-  } catch (error) {
-    client.close();
-    throw new Error('Invalid token');
-  }
-};
-
 const extractOwnerName = async (token, secretKey) => {
   try {
     const decoded = jwt.verify(token, secretKey);
@@ -60,79 +39,70 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
     };
     const update = { $addToSet: { members: memberID } };
     await groupCollection.updateOne(query, update);
-    const updatedDocument = await groupCollection.findOne(query);
-    if (!updatedDocument) {
-      throw new Error('멤버 추가에 실패했습니다.');
-    }
-    const insertedID = updatedDocument._id;
 
     client.close();
-    return insertedID;
+    return { message: '멤버 추가 성공' };
   } catch (error) {
     console.log(error);
   }
 };
 
-// search->memberName에 groupname추가, memberID반환
-const addGroupInUser = async (memberName, groupName, groupOwner) => {
+const extractMemberID = async (email, groupName, groupOwner) => {
+  let client;
   try {
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('search');
-    const memberCollection = database.collection(memberName);
+    client = await MongoClient.connect(conn_str);
+    const session = client.startSession(); // 세션 생성
+    session.startTransaction(); // 트랜잭션 시작
+    const database = client.db('test');
+    const usersCollection = database.collection('users');
+    const user = await usersCollection.findOne({ email: email });
 
-    // 중복 처리를 위해 이미 해당 멤버가 있는지 확인
-    const existingDocument = await memberCollection.findOne({ groupName: groupName, groupOwner: groupOwner });
-    if (existingDocument) {
+    if (user) {
+      const updateObj = { $set: { group: {} } };
+      if (user.group) {
+        updateObj.$set.group = { ...user.group }; // 복사하여 기존 그룹 정보 유지
+      }
+      updateObj.$set.group[groupName] = groupOwner;
+      const updatedUser = await usersCollection.findOneAndUpdate({ email: email }, updateObj);
+      if (updatedUser) {
+        const userId = updatedUser.value._id;
+        await session.commitTransaction(); // 트랜잭션 커밋
+        session.endSession(); // 세션 종료
+        client.close();
+        return userId;
+      } else {
+        await session.abortTransaction(); // 트랜잭션 롤백
+        session.endSession(); // 세션 종료
+        client.close();
+        throw new Error('Failed to add group to user');
+      }
+    } else {
+      await session.abortTransaction(); // 트랜잭션 롤백
+      session.endSession(); // 세션 종료
       client.close();
-      return groupName;
+      throw new Error('User not found');
     }
-
-    const document = {
-      groupName: groupName,
-      groupOwner: groupOwner,
-    };
-
-    const result = await memberCollection.insertOne(document);
-    const insertedID = result.insertedId;
-    client.close();
-    return insertedID;
   } catch (error) {
-    throw error;
-  }
-};
-
-const addGroupID = async (groupID, memberID, memberName) => {
-  try {
-    const client = await MongoClient.connect(conn_str);
-    const database = client.db('search');
-    const memberCollection = database.collection(memberName);
-    const query = {
-      _id: memberID,
-    };
-    const update = { $set: { group: groupID } };
-
-    await memberCollection.updateOne(query, update);
-    client.close();
-    return { message: '멤버 추가 완료' };
-  } catch (error) {
-    throw error;
+    if (client) {
+      await session.abortTransaction(); // 트랜잭션 롤백
+      session.endSession(); // 세션 종료
+      client.close();
+    }
+    throw new Error('Invalid token');
   }
 };
 
 router.post('/', async (req, res) => {
   try {
     const { userToken, groupName, email } = req.body;
-    const membername = await extractMemberName(email);
+    // 멤버 정보에 그룹 추가, id추출
     const groupOwner = await extractOwnerName(userToken, process.env.jwtSecret);
-    const memberID = await addGroupInUser(membername, groupName, groupOwner);
-    if (memberID === groupName) {
-      return res.json({ message: '이미 추가된 멤버' });
-    }
-    const groupID = await addGroupMember(memberID, groupName, groupOwner);
-    const message = await addGroupID(groupID, memberID, membername);
+    const memberID = await extractMemberID(email, groupName, groupOwner);
+    // 그룹에 멤버 추가
+    const message = await addGroupMember(memberID, groupName, groupOwner);
     res.status(200).json(message);
   } catch (error) {
-    res.status(400).json({ message: error });
+    res.status(400).json({ message: error.message });
   }
 });
 

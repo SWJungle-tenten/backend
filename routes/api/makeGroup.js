@@ -5,7 +5,7 @@ const conn_str = process.env.mongoURI;
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 
-const extractOwnerName = async (token, secretKey) => {
+const extractOwnerInf = async (token, secretKey) => {
   try {
     const decoded = jwt.verify(token, secretKey);
     const decodedUser = decoded.user; // 사용자 ID 반환
@@ -16,8 +16,13 @@ const extractOwnerName = async (token, secretKey) => {
     const user = await usersCollection.findOne({ _id: new ObjectId(userID) });
     if (user) {
       const ownername = user.name;
+      const owneremail = user.email;
+      const data = {
+        name: ownername,
+        email: owneremail,
+      };
       client.close();
-      return ownername;
+      return data;
     } else {
       client.close();
       throw new Error('User not found');
@@ -39,6 +44,9 @@ const extractMemberID = async (email, groupName, groupOwner) => {
 
     if (user) {
       const updateObj = { $set: { group: {} } };
+      if (user.group) {
+        updateObj.$set.group = { ...user.group }; // 복사하여 기존 그룹 정보 유지
+      }
       updateObj.$set.group[groupName] = groupOwner;
       const updatedUser = await usersCollection.findOneAndUpdate({ email: email }, updateObj);
       if (updatedUser) {
@@ -145,11 +153,12 @@ const addGroupMember = async (memberID, groupname, groupowner) => {
 router.post('/', async (req, res) => {
   try {
     const { userToken, groupName, members } = req.body;
-    const groupOwner = await extractOwnerName(userToken, process.env.jwtSecret);
-    const insertedID = await makeGroup(groupOwner, groupName);
+    const groupOwner = await extractOwnerInf(userToken, process.env.jwtSecret);
+    const insertedID = await makeGroup(groupOwner.name, groupName);
     if (insertedID === groupName) {
       return res.status(400).json({ message: '같은 이름의 그룹이 이미 존재' });
     }
+    await extractMemberID(groupOwner.email, groupName, groupOwner.name);
     if (members.length === 0) {
       // members 배열이 비어있을 경우 예외 처리
       return res.status(200).json({ message: '멤버가 없는 그룹 추가 완료' });

@@ -21,7 +21,7 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-const { extractUserName } = require('./function/keyWordByDate');
+const { extractUserName, keyWordByDate } = require('./function/keyWordByDate');
 const { saveUserScrap } = require('./function/saveUserScrap');
 const { getDateAndTime } = require('./function/getDateAndTime');
 const { deleteKeyWord } = require('./function/deleteKeyWord');

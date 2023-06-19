@@ -46,22 +46,19 @@ const extractUserName = async (token, secretKey) => {
   }
 };
 
-// const sendDataViaSocket = async (data) => {
-//   io.emit('scrapDataUpdate', data);
-//   io.on('error', (error) => {
-//     console.error('Socket error:', error);
-//   });
-// };
-
 router.post('/', async (req, res) => {
   try {
-    const { userToken, keyWord, url, title } = req.body;
+    const { keyWord, url, title } = req.body;
+    const authorizationHeader = req.headers.authorization;
+    let userToken = null;
+    if (authorizationHeader && authorizationHeader.startsWith('Bearer')) {
+      userToken = authorizationHeader.substring(7); // "Bearer " 부분을 제외한 토큰 값 추출
+      console.log(userToken);
+    }
     const dateTime = await getDateAndTime();
     const username = await extractUserName(userToken, process.env.jwtSecret);
     const result = await saveUserScrap(username, keyWord, url, dateTime.date, dateTime.time, title);
     const dataToSend = await keyWordByDate(username);
-    // sendDataViaSocket(dataToSend);
-    // res.status(200).json({ message: result });
     res.status(200).json(dataToSend);
   } catch (error) {
     console.error(error);

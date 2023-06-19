@@ -81,7 +81,13 @@ router.post('/', async (req, res) => {
   const io = req.app.get('io');
   session.startTransaction(); // 트랜잭션 시작
   try {
-    const { userToken, groupName, groupOwner, keyWord, url, title } = req.body;
+    const { groupName, groupOwner, keyWord, url, title } = req.body;
+    const authorizationHeader = req.headers.authorization;
+    let userToken = null;
+    if (authorizationHeader && authorizationHeader.startsWith('Bearer')) {
+      userToken = authorizationHeader.substring(7); // "Bearer " 부분을 제외한 토큰 값 추출
+      console.log(userToken);
+    }
     const dateTime = await getDateAndTime();
     const username = await extractUserName(userToken, process.env.jwtSecret, client);
     const result = await saveGroupScrap(

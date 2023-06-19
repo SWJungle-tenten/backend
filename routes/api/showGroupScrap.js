@@ -87,12 +87,6 @@ const groupKeywordByDate = async (groupOwner, groupName) => {
 
 router.post('/', async (req, res) => {
   const { groupName, groupOwner } = req.body;
-  // const authorizationHeader = req.headers.authorization;
-  // console.log(authorizationHeader)
-  // if (authorizationHeader && authorizationHeader.startsWith('Bearer ')) {
-  //   const userToken = authorizationHeader.substring(7); // "Bearer " 부분을 제외한 토큰 값 추출
-  //   console.log(userToken);
-  // }
   try {
     const dataToSend = await groupKeywordByDate(groupOwner, groupName);
     if (dataToSend === null) {

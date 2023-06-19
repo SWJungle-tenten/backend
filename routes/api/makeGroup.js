@@ -121,7 +121,12 @@ const makeGroup = async (username, groupName) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { userToken, groupName, members } = req.body;
+    const { groupName, members } = req.body;
+    const authorizationHeader = req.headers.authorization;
+    let userToken = null;
+    if (authorizationHeader && authorizationHeader.startsWith('Bearer')) {
+      userToken = authorizationHeader.substring(7); // "Bearer " 부분을 제외한 토큰 값 추출
+    }
     const groupOwner = await extractOwnerInf(userToken, process.env.jwtSecret);
     const insertedID = await makeGroup(groupOwner.name, groupName);
     if (insertedID === groupName) {
